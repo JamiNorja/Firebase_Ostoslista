@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getDatabase, push, ref, onValue, remove } from 'firebase/database';
 import { useState, useEffect } from 'react';
+import { Keyboard } from 'react-native';
 import { StyleSheet, Text, View, TextInput, Button, FlatList } from 'react-native';
 
 const firebaseConfig = {
@@ -22,28 +23,31 @@ export default function App() {
 
   useEffect(() => {
     const itemsRef = ref(database, 'shoplist/');
-    onValue(itemsRef, (snapshot) => {
-      try {
-        const data = snapshot.val();
-        if (data) {
-          setShoplist(Object.values(data));
-        } else {
-          setShoplist([]);
-        }
-      } catch (error) {
-        console.error("Error fetching data from Firebase:", error);
+    onValue(itemsRef, snapshot => {
+      const data = snapshot.val();
+      let products;
+      if(data) {
+        products = data ? Object.keys(data).map(key => ({ key, ...data[key] })) : [];
+      } else {
+        products = [];
       }
+      setShoplist(products);
+      console.log(products.length, 'items read');
     });
   }, []);
 
   const saveShoplist = () => {
     push(
       ref(database, 'shoplist/'),
-      {'id': postId, 'product': product, 'amount': amount });
+      {'product': product, 'amount': amount });
+      setAmount('');
+      setProduct('');
+      Keyboard.dismiss();
   }
 
-  const deleteItem = () => {
-
+  const deleteItem = (key) => {
+    console.log('deleteItem', key, shoplist.find(item => item.key === key));
+    remove(ref(database, 'shoplist/' + key));
   }
 
 
@@ -65,15 +69,14 @@ export default function App() {
       </View>
       <Text style={{ fontSize: 18, paddingTop: 20 }}>Shopping list</Text>
       <FlatList
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item, index) => index.toString()}
+        data={shoplist}
         renderItem={({ item }) =>
           <View style={styles.listcontainer}>
-            <Text style={{ fontSize: 15 }}>{item.product}, {item.amount} </Text>
-            <Text style={{ color: '#0000ff' }} onPress={() => deleteItem(item.id)}>delete</Text>
+            <Text style={{ fontSize: 15 }}>{`${item.product} ${item.amount} `}</Text>
+            <Text style={{ color: '#0000ff' }} onPress={() => deleteItem(item.key)}>delete</Text>
           </View>}
-        data={shoplist}
       />
-
     </View>
   );
 }
